@@ -45,7 +45,7 @@ visibility and control without the two ever bleeding into each other.
 ## Install
 
 ```bash
-git clone <this-repo> ubuntu-sandbox && cd ubuntu-sandbox
+git clone https://github.com/josedaniel/ubuntu-sandbox.git && cd ubuntu-sandbox
 ./install.sh
 # if install.sh asks, add ~/.local/bin to your PATH and reload your shell:
 #   export PATH="$HOME/.local/bin:$PATH"
@@ -122,7 +122,7 @@ sandbox. The guarantee here is about **writes and identity**: the agent's `$HOME
 is your dedicated folder, so it stores its credentials and state there and never
 modifies your real `~/.claude`, `~/.ssh`, or dotfiles. If you need stricter
 read isolation (e.g. mount only `~/Projects`), that's a small change — open an
-issue or ask.
+issue at https://github.com/josedaniel/ubuntu-sandbox/issues.
 
 ## License
 
