@@ -1,0 +1,83 @@
+#!/usr/bin/env bash
+#
+# ubuntu — launch an isolated Ubuntu sandbox (OrbStack) in the current folder.
+#
+#   ubuntu                 -> open an Ubuntu shell in the current folder
+#   ubuntu claude          -> run `claude` inside the sandbox, in this folder
+#   ubuntu --home          -> open the isolated HOME in Finder (lives on your Mac)
+#   ubuntu --rebuild       -> destroy and recreate the machine (re-provision)
+#
+# Configuration (config.sh overrides these, env vars override config.sh):
+#   UBUNTU_SANDBOX_MACHINE   machine name              (default: devbox)
+#   UBUNTU_SANDBOX_DISTRO    distro / version          (default: ubuntu:noble = 24.04 LTS)
+#   UBUNTU_SANDBOX_HOME      Mac folder for the HOME    (default: ~/UbuntuSandbox/home)
+#
+set -euo pipefail
+
+REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+PROVISION="$REPO_DIR/provision/setup.sh"
+
+# Load persistent config if present (versionable: copy config.example.sh -> config.sh)
+[ -f "$REPO_DIR/config.sh" ] && . "$REPO_DIR/config.sh"
+
+MACHINE="${UBUNTU_SANDBOX_MACHINE:-devbox}"
+DISTRO="${UBUNTU_SANDBOX_DISTRO:-ubuntu:noble}"
+SANDBOX_HOME="${UBUNTU_SANDBOX_HOME:-$HOME/UbuntuSandbox/home}"
+SANDBOX_USER="$(whoami)"   # OrbStack creates a Linux user matching your macOS username
+
+err()  { printf '\033[31m%s\033[0m\n' "$*" >&2; }
+info() { printf '\033[36m%s\033[0m\n' "$*" >&2; }
+
+# --- 0. OrbStack available --------------------------------------------------
+if ! command -v orb >/dev/null 2>&1; then
+  err "OrbStack is not installed."
+  err "Install it with:  brew install --cask orbstack"
+  exit 1
+fi
+
+machine_exists() {
+  orb list 2>/dev/null | awk 'NR>1 {print $1}' | grep -qx "$MACHINE"
+}
+
+provision() {
+  # The Mac folder must exist before Linux can mount it at the same path.
+  mkdir -p "$SANDBOX_HOME"
+  info "Provisioning '$MACHINE' (first boot, may take 1-2 min)…"
+  info "HOME -> $SANDBOX_HOME"
+  orb -m "$MACHINE" -u root \
+    env SANDBOX_HOME="$SANDBOX_HOME" SANDBOX_USER="$SANDBOX_USER" \
+    bash < "$PROVISION"
+}
+
+# --- 1. Special flags -------------------------------------------------------
+case "${1:-}" in
+  --home)
+    open "$SANDBOX_HOME"
+    exit 0
+    ;;
+  --rebuild)
+    if machine_exists; then
+      info "Deleting machine '$MACHINE'…"
+      orb delete "$MACHINE"
+    fi
+    ;;
+esac
+
+# --- 2. Create + provision if missing ---------------------------------------
+if ! machine_exists; then
+  info "Creating machine '$MACHINE' ($DISTRO)…"
+  orb create "$DISTRO" "$MACHINE"
+  provision
+fi
+
+# If this was --rebuild we already recreated it above: consume the flag.
+[ "${1:-}" = "--rebuild" ] && shift
+
+# --- 3. Enter the machine, in the current folder ----------------------------
+# OrbStack maps the Mac filesystem into Linux at the SAME path, so running
+# `orb` from here drops us into the equivalent folder.
+if [ "$#" -gt 0 ]; then
+  exec orb -m "$MACHINE" "$@"
+else
+  exec orb -m "$MACHINE"
+fi
