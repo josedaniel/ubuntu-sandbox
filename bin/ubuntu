@@ -14,7 +14,14 @@
 #
 set -euo pipefail
 
-REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# Resolve the real location even when invoked through a symlink (e.g. ~/.local/bin/ubuntu).
+SOURCE="${BASH_SOURCE[0]}"
+while [ -L "$SOURCE" ]; do
+  DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
+  SOURCE="$(readlink "$SOURCE")"
+  [ "${SOURCE#/}" = "$SOURCE" ] && SOURCE="$DIR/$SOURCE"
+done
+REPO_DIR="$(cd -P "$(dirname "$SOURCE")/.." && pwd)"
 PROVISION="$REPO_DIR/provision/setup.sh"
 
 # Load persistent config if present (versionable: copy config.example.sh -> config.sh)
