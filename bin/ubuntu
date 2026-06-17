@@ -43,7 +43,7 @@ if ! command -v orb >/dev/null 2>&1; then
 fi
 
 machine_exists() {
-  orb list 2>/dev/null | awk 'NR>1 {print $1}' | grep -qx "$MACHINE"
+  orb list -q 2>/dev/null | grep -qx "$MACHINE"
 }
 
 provision() {
